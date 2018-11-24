@@ -52,9 +52,9 @@ class MyFuncs:
 		this_model_num = next_model_num
 		#next_model_num += 1
 		worker_num[this_model_num] = 8801
-		finished[this_model_num](False)
-		server_connects[worker_num[this_model_num]].train(this_model_num, message)
-		finished[this_model_num](True)
+		finished[this_model_num] = False
+		server_connects[worker_num[this_model_num]-8801].train(this_model_num, message)
+		finished[this_model_num] = True
 		return True
 
 
