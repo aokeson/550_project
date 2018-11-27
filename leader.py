@@ -1,4 +1,5 @@
 import sys
+import os
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver
 import xmlrpc.client
@@ -13,9 +14,9 @@ worker_num = [np.nan]
 finished = [np.nan]
 losses = [[np.nan,np.nan,np.nan,np.nan,np.nan]]
 
-server_connects = []
-for i in range(num_workers):
-	server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
+#server_connects = []
+#for i in range(num_workers):
+#	server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 
 class MultiXMLRPCServer(socketserver.ThreadingMixIn,SimpleXMLRPCServer): pass
 
@@ -35,8 +36,16 @@ def keepRunning(model_num):
 class MyFuncs:
 
 	def quit(self):
-		server_connects[worker_num[model_num]].quit()
-		#os.system('python worker.py '+str(worker_num[model_num]))
+		server_connects = []
+		for i in range(num_workers):
+			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
+		model_num = 0
+		server_connects[worker_num[model_num]-8801].quit()
+		print("HERE")
+		#time.sleep(5)
+		print("after sleep")
+		os.system('python worker.py '+str(worker_num[model_num]))
+		print("startup")
 		return True
     
 	def update(self, epoch_num, model_num, loss):
@@ -49,6 +58,9 @@ class MyFuncs:
 			return True
 
 	def train_request(self, message):
+		server_connects = []
+		for i in range(num_workers):
+			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 		this_model_num = next_model_num
 		#next_model_num += 1
 		worker_num[this_model_num] = 8801
