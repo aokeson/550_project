@@ -1,12 +1,8 @@
-import sys
-import os
+import sys, os, time
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
-import socketserver
-import xmlrpc.client
-from multiprocessing import Process
-from threading import Thread
+import socketserver, xmlrpc.client
+#from threading import Thread
 import numpy as np
-import time
 
 num_workers = 1
 next_model_num = 0
@@ -43,13 +39,7 @@ class MyFuncs:
 		model_num = 0
 		server_connects[worker_num[model_num]-8801].quit()
 		time.sleep(1)
-		print("HERE")
-		#time.sleep(5)
-		print("after sleep")
-		#thread = Thread(target=os.system('python worker.py '+str(worker_num[model_num])))
-		#thread.start()
 		os.system('python worker.py '+str(worker_num[model_num])+ " &")
-		print("startup")
 		return True
     
 	def update(self, epoch_num, model_num, loss):
@@ -69,14 +59,18 @@ class MyFuncs:
 		#next_model_num += 1
 		worker_num[this_model_num] = 8801
 		finished[this_model_num] = False
-		server_connects[worker_num[this_model_num]-8801].train(this_model_num, message)
+		try:
+			server_connects[worker_num[this_model_num]-8801].train(this_model_num, message)
+		except:
+			time.sleep(5)
+			print("trying again")
+			server_connects[worker_num[this_model_num]-8801].train(this_model_num, message)
 		finished[this_model_num] = True
 		return True
 
 
 # Start server, register functions, serve continuously
 server = MultiXMLRPCServer(('localhost', 8800),logRequests=False) # Can process multiple requests at once
-#server = SimpleXMLRPCServer(('localhost', 8800)) # Puts recieved requests in a queue and then completes them serially
 server.register_instance(MyFuncs())
 server.serve_forever()
 

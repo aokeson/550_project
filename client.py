@@ -27,6 +27,6 @@ HY = {
 
 with xmlrpc.client.ServerProxy('http://localhost:8800') as s:
 	if sys.argv[1] == "quit":
-		s.quit()
+		print(s.quit())
 	else:
 		print(s.train_request(HY))
