@@ -6,6 +6,7 @@ import xmlrpc.client
 from multiprocessing import Process
 from threading import Thread
 import numpy as np
+import time
 
 num_workers = 1
 next_model_num = 0
@@ -41,10 +42,13 @@ class MyFuncs:
 			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 		model_num = 0
 		server_connects[worker_num[model_num]-8801].quit()
+		time.sleep(1)
 		print("HERE")
 		#time.sleep(5)
 		print("after sleep")
-		os.system('python worker.py '+str(worker_num[model_num]))
+		#thread = Thread(target=os.system('python worker.py '+str(worker_num[model_num])))
+		#thread.start()
+		os.system('python worker.py '+str(worker_num[model_num])+ " &")
 		print("startup")
 		return True
     

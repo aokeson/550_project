@@ -96,20 +96,17 @@ class MyFuncs:
 		return "stopping"
 
 	def train(self, model_num, HY):
-		thread = Thread(target=training(model_num, HY))
+		#thread = Thread(target=training(model_num, HY))
 		#thread_id = thread.getName()
 		#print(threading.get_ident())
 		#thread_id = thread.get_ident()
-		thread.start()
+		#thread.start()
 		#time.sleep(1)
 
 		#pid = os.getpid()
 		#print(pid)
-
+		training(model_num, HY)
 		
-		# If we want early stopping, can add as callback above: 
-		#keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=0, mode='auto', baseline=None, restore_best_weights=False)
-
 		return "done"
 
 # Start server, register functions, serve continuously
