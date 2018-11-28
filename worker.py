@@ -7,15 +7,6 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
 
-X = np.genfromtxt("../data/mnist.data", max_rows=100)
-y = np.genfromtxt("../data/mnist.labels", max_rows=100)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-print("done loading data")
-
-# reshape training data into 2d
-X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
-X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
-
 leader = xmlrpc.client.ServerProxy('http://localhost:8800',allow_none=True)
 
 class MultiXMLRPCServer(socketserver.ThreadingMixIn,SimpleXMLRPCServer): pass
@@ -35,6 +26,17 @@ class MyFuncs:
 		return "stopping"
 
 	def train(self, model_num, HY):
+		#X = np.genfromtxt("../data/mnist.data", max_rows=100)
+		#y = np.genfromtxt("../data/mnist.labels", max_rows=100)
+		X = np.genfromtxt("../data/mnist.data")
+		y = np.genfromtxt("../data/mnist.labels")
+		X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+		print("done loading data")
+
+		# reshape training data into 2d
+		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
+		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
+		
 		num_epochs = 5
         
 		model = Sequential()

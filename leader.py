@@ -38,6 +38,7 @@ class MyFuncs:
 			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 		model_num = 0
 		server_connects[worker_num[model_num]-8801].quit()
+		server_connects[worker_num[model_num]-8801].quit()
 		time.sleep(1)
 		os.system('python worker.py '+str(worker_num[model_num])+ " &")
 		return True
