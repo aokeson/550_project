@@ -18,7 +18,7 @@ loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
 
 
-num_workers = 1
+num_workers = 3
 
 
 HY_COMBOS = {

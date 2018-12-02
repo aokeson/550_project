@@ -19,6 +19,7 @@ else:
 	exit()
 
 def training(model_num, HY):
+	time.sleep(1)
 	X = np.genfromtxt("../data/mnist.data", max_rows=100)
 	y = np.genfromtxt("../data/mnist.labels", max_rows=100)
 	#X = np.genfromtxt("../data/mnist.data")
@@ -34,6 +35,8 @@ def training(model_num, HY):
     
 	model = Sequential()
 	no_conv_layers = True
+	print(HY)
+	print(HY["conv_layers"])
 	# ADD CONVOLUTION LAYERS
 	for i,c_params in enumerate(HY["conv_layers"]):
 		no_conv_layers = False
@@ -87,6 +90,7 @@ def training(model_num, HY):
 		model.fit(X_train_c, y_train, validation_data=(X_test_c, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.LambdaCallback(on_epoch_end=report_ep_loss)])
 	leader.model_finished(model_num)
 
+
 # Functions that client can ask server to do
 class MyFuncs:
     
@@ -96,7 +100,7 @@ class MyFuncs:
 		return "stopping"
 
 	def train(self, model_num, HY):
-		Thread(target=training(model_num, HY)).start()
+		Thread(target=training, args=(model_num,HY)).start()
 		return "training"
 
 # Start server, register functions, serve continuously
