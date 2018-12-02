@@ -1,10 +1,7 @@
-import sys, os, time
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
-#from threading import Thread
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
 from sklearn.model_selection import ParameterGrid
 
 print_graphs = False
@@ -19,55 +16,6 @@ slope_quantile_cutoff = .5
 
 
 num_workers = 3
-
-
-HY_COMBOS = {
-	# each element of conv_layers should be tuple:
-	#(num filters, filtersize tuple, poolsize tuple OR none if not pooling)
-	"conv_layers": [[(32,(3,3),(2, 2)), (10,(3,3),(2,2))], [(32,(3,3),(2, 2))],[]],
-	# this is a list of sizes for each dense layer
-	# do not include the final prediction layer here
-	"dense_layers" : [[50,10,5], [40,20],[10],[]],
-	# apply the SAME activation and dropout to every conv and dense layer 
-	# (except for final output which has hardcoded softmax activation w/ no dropout)
-	"activation": ["relu", "sigmoid"], 
-	"dropout":  np.arange(0,.5,.1),
-	# l2 regularization for weights
-	"k_reg": [0,.001],
-	# optimization hyperparameters
-	"learning_rate": [.01],
-	"grad_clip_norm": np.arange(0,.5,.2)}
-    
-    
-hy_list = list(ParameterGrid(HY_COMBOS))
-
-# INITIALIZATION 
-losses = np.empty([len(hy_list), max_epochs])
-losses.fill(np.nan)
-
-running_averages = np.empty([len(hy_list), max_epochs])
-running_averages.fill(np.nan)
-
-running_slopes = np.empty([len(hy_list), max_epochs])
-running_slopes.fill(np.nan)
-
-# here, we're just pre-specifying a random order in which to test all the hyperparameters 
-MODEL_QUEUE = list(np.random.permutation(len(hy_list)))
-
-
-# array of length num_workers 
-# --> if the worker is idle, value is np.nan; otherwise, the value is the model number that's being trained
-WORKERS = np.empty(num_workers)
-WORKERS.fill(np.nan)
-
-
-# For the simulation, We randomly pick a worker to "receive" a message from, but in reality we just select data from 
-# the pre-determined training curve and pass it to the update function 
-# ep_counters is used to keep track of what epoch we're up to in training  
-# (it's a dict where each key is a model number and the value is the #epoch training is thought to be on)
-ep_counters = {}
-for mod in range(len(hy_list)):
-    ep_counters[mod] = 0
 
 
 
@@ -106,23 +54,12 @@ def check_stopping(model_num):
 	else:
 		return False
 
-
 # Functions that client can ask server to do
 class MyFuncs:
-
-	#def quit(self):
-	#	server_connects = []
-	#	for i in range(num_workers):
-	#		server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
-	#	model_num = 0
-	#	server_connects[worker_num[model_num]-8801].quit()
-	#	server_connects[worker_num[model_num]-8801].quit()
-	#	time.sleep(1)
-	#	os.system('python worker.py '+str(worker_num[model_num])+ " &")
-	#	return True
     
 	def model_finished(self, model_num):
-		WORKERS[np.where(WORKERS==model_num)] = np.nan
+		print("MODEL %i DONE"%model_num)
+		WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
 		return True
 
 	def update(self, epoch_num, model_num, loss):
@@ -135,25 +72,58 @@ class MyFuncs:
 			running_averages[model_num, epoch_num] = np.mean(losses[model_num, epoch_num-running_avg_window+1:epoch_num+1])
 		if epoch_num - slopes_window >= 0:
 			running_slopes[model_num, epoch_num] = running_averages[model_num, epoch_num] - running_averages[model_num, epoch_num-slopes_window]
-		
+
 		if check_stopping(model_num):
 			print("QUITTING MODEL %i"%model_num)
-			server_connects[np.where(WORKERS==model_num)].quit()
-			server_connects[np.where(WORKERS==model_num)].quit()
-			time.sleep(1)
-			os.system('python worker.py '+str(np.where(WORKERS==model_num)+8801)+ " &")
-			time.sleep(1)
-			WORKERS[selected_worker] = np.nan
-
-		elif (ep_counters[model_num] >= max_epochs-1):
-			print("MODEL %i DONE"%model_num)
-			WORKERS[selected_worker] = np.nan
+			server_connects = []
+			for i in range(num_workers):
+				server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
+			server_connects[np.where(WORKERS==model_num)[0][0]].quit()
+			WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
 			    
 		else:
 			ep_counters[model_num] += 1
 		return True
 
 	def train_request(self, message):
+		global hy_list
+		global losses
+		global running_averages
+		global running_slopes
+		global MODEL_QUEUE
+		global WORKERS
+		global ep_counters
+		hy_list = list(ParameterGrid(message))
+
+		# INITIALIZATION 
+		losses = np.empty([len(hy_list), max_epochs])
+		losses.fill(np.nan)
+
+		running_averages = np.empty([len(hy_list), max_epochs])
+		running_averages.fill(np.nan)
+
+		running_slopes = np.empty([len(hy_list), max_epochs])
+		running_slopes.fill(np.nan)
+
+		# here, we're just pre-specifying a random order in which to test all the hyperparameters 
+		MODEL_QUEUE = list(np.random.permutation(len(hy_list)))
+
+
+		# array of length num_workers 
+		# --> if the worker is idle, value is np.nan; otherwise, the value is the model number that's being trained
+		WORKERS = np.empty(num_workers)
+		WORKERS.fill(np.nan)
+
+
+		# For the simulation, We randomly pick a worker to "receive" a message from, but in reality we just select data from 
+		# the pre-determined training curve and pass it to the update function 
+		# ep_counters is used to keep track of what epoch we're up to in training  
+		# (it's a dict where each key is a model number and the value is the #epoch training is thought to be on)
+		ep_counters = {}
+		for mod in range(len(hy_list)):
+			ep_counters[mod] = 0
+
+
 		server_connects = []
 		for i in range(num_workers):
 			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
@@ -183,18 +153,11 @@ class MyFuncs:
 					new_worker_id = int(np.random.choice(np.where(np.isnan(WORKERS))[0]))
 					print("starting new model %i on worker %i"%(new_mod, new_worker_id))
 					WORKERS[new_worker_id] = new_mod
-					#try:
 					hy_list[new_mod]["dropout"]=float(hy_list[new_mod]["dropout"])
 					hy_list[new_mod]["grad_clip_norm"]=float(hy_list[new_mod]["grad_clip_norm"])
 					server_connects[new_worker_id].train(new_mod, hy_list[new_mod])
-						#WORKERS[new_worker_id] = np.nan
-					#except:
-					#	print("worker error or stop")
-						#time.sleep(5)
-					#	continue
 
 				else:
-					print("here_million")
 					break
 
 		if print_graphs:
