@@ -3,7 +3,6 @@ from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
 import numpy as np
 from threading import Thread
-from sklearn.model_selection import train_test_split
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
@@ -18,11 +17,10 @@ else:
 	print("Must specify a server number")
 	exit()
 
-X = np.genfromtxt("../data/mnist.data", max_rows=100)
-y = np.genfromtxt("../data/mnist.labels", max_rows=100)
-#X = np.genfromtxt("../data/mnist.data")
-#y = np.genfromtxt("../data/mnist.labels")
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+X_train = np.genfromtxt("../data/mnist.data.train")
+y_train = np.genfromtxt("../data/mnist.labels.train")
+X_test = np.genfromtxt("../data/mnist.data.test")
+y_test = np.genfromtxt("../data/mnist.labels.test")
 print("done loading data")
 
 def training(model_num, HY):
