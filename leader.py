@@ -1,10 +1,12 @@
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import ParameterGrid
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
+import math, os
 
-print_graphs = False
 max_epochs = 200
 running_avg_window = 2
 slopes_window = 4
@@ -133,14 +135,6 @@ class MyFuncs:
 		print_counter=0
 		while True:
 
-			if print_graphs and np.sum(list(ep_counters.values())) % plotting_frequency == 0 and np.sum(list(ep_counters.values())) !=0:
-				if print_counter < 100:
-					plt.figure()
-					for row in losses:
-						plt.plot(np.arange(200), row)
-					plt.legend(np.arange(len(hy_list)))
-					print_counter+=1
-
 			# if there are no workers working on any models AND there are no models left to test, break out of the loop
 			if len(np.where(~np.isnan(WORKERS))[0]) == 0 and not MODEL_QUEUE:
 				break
@@ -155,17 +149,79 @@ class MyFuncs:
 					WORKERS[new_worker_id] = new_mod
 					hy_list[new_mod]["dropout"]=float(hy_list[new_mod]["dropout"])
 					hy_list[new_mod]["grad_clip_norm"]=float(hy_list[new_mod]["grad_clip_norm"])
-					server_connects[new_worker_id].train(new_mod, hy_list[new_mod])
+					server_connects[new_worker_id].train(new_mod, hy_list[new_mod], max_epochs)
 
 				else:
 					break
 
-		if print_graphs:
-			for row in losses:
-				plt.plot(np.arange(200), row)
-			plt.legend(np.arange(len(hy_list)))
 
-		return True
+		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
+
+		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
+		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
+		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
+		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
+		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
+		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
+		
+		num_epochs = int((np.nanargmin(losses)%max_epochs)+1)
+
+		model = Sequential()
+
+		no_conv_layers = True
+		no_dense_layers = True
+		# ADD CONVOLUTION LAYERS
+		for i,c_params in enumerate(HY["conv_layers"]):
+			no_conv_layers = False
+
+			num_filters, kernel_size, pooling_size = c_params
+
+			# if it's the first layer, need to specify input shape
+			if i==0: 
+				model.add(Conv2D(num_filters, kernel_size, kernel_regularizer=keras.regularizers.l2(HY["k_reg"]), input_shape=(28,28,1)))
+			else:
+				model.add(Conv2D(num_filters, kernel_size, kernel_regularizer=keras.regularizers.l2(HY["k_reg"])))
+
+			# add activation, pooling, dropout 
+			model.add(Activation(HY["activation"]))
+			if pooling_size:           
+				model.add(MaxPooling2D(pool_size=pooling_size))
+			if HY["dropout"]:
+				model.add(Dropout(HY["dropout"]))
+
+		if not no_conv_layers:
+			model.add(Flatten())
+
+		for i,dense_nodes in enumerate(HY["dense_layers"]):
+			no_dense_layers = False
+
+			if no_conv_layers and i==0:
+				model.add(Dense(dense_nodes, kernel_regularizer=keras.regularizers.l2(HY["k_reg"]), input_dim=784))
+			else:
+				model.add(Dense(dense_nodes, kernel_regularizer=keras.regularizers.l2(HY["k_reg"])))
+
+			# add activation and dropout 
+			model.add(Activation(HY["activation"]))
+			if HY["dropout"]:
+				model.add(Dropout(HY["dropout"]))
+
+		# once all the hidden nodes are added, add the output layer with a softmax activation
+		if no_conv_layers and no_dense_layers:
+			model.add(Dense(10, input_dim=784))
+		else:
+			model.add(Dense(10))
+		model.add(Activation('softmax'))
+
+		model.compile(optimizer=keras.optimizers.SGD(lr=HY["learning_rate"], clipnorm=HY["grad_clip_norm"]),  loss='categorical_crossentropy', metrics=['accuracy'])
+
+		save_path = str(os.path.dirname(os.path.abspath(__file__)))+str("/best_model.hdf5")
+		if no_conv_layers:
+			model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.ModelCheckpoint(save_path, monitor='val_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', period=num_epochs)])
+		else:
+			model.fit(X_train_c, y_train, validation_data=(X_test_c, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.ModelCheckpoint(save_path, monitor='val_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', period=num_epochs)])
+		keras.backend.clear_session()
+
+		return (losses.tolist(), len(hy_list), float(losses.tolist()[math.floor(np.nanargmin(losses)/max_epochs)][num_epochs-1]), HY, num_epochs, save_path)
 
 
 

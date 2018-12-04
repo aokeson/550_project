@@ -1,4 +1,4 @@
-import sys, time
+import sys
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
 import numpy as np
@@ -17,22 +17,19 @@ else:
 	print("Must specify a server number")
 	exit()
 
-X_train = np.genfromtxt("../data/mnist.data.train")
-y_train = np.genfromtxt("../data/mnist.labels.train")
-X_test = np.genfromtxt("../data/mnist.data.test")
-y_test = np.genfromtxt("../data/mnist.labels.test")
+X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
+y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
+X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
+y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
 print("done loading data")
 
-def training(model_num, HY):
+def training(model_num, HY, num_epochs):
 	keras.backend.clear_session()
-	print(HY)
-	time.sleep(1)
+
 	# reshape training data into 2d
 	X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 	X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
-	
-	num_epochs = 200
-    
+
 	model = Sequential()
 
 	no_conv_layers = True
@@ -89,7 +86,6 @@ def training(model_num, HY):
 	else:
 		model.fit(X_train_c, y_train, validation_data=(X_test_c, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.LambdaCallback(on_epoch_end=report_ep_loss)])
 	leader.model_finished(model_num)
-	keras.backend.clear_session()
 
 
 # Functions that client can ask server to do
@@ -99,8 +95,8 @@ class MyFuncs:
 		keras.backend.clear_session()
 		return "stopping"
 
-	def train(self, model_num, HY):
-		Thread(target=training, args=(model_num,HY)).start()
+	def train(self, model_num, HY, max_epochs):
+		Thread(target=training, args=(model_num,HY,max_epochs), name="Testing").start()
 		return "training"
 
 # Start server, register functions, serve continuously
