@@ -157,10 +157,10 @@ class MyFuncs:
 
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
-		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
-		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
-		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
-		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
+		X_train = np.genfromtxt("../data/mnist.data.train")#, max_rows=80)
+		y_train = np.genfromtxt("../data/mnist.labels.train")#, max_rows=80)
+		X_test = np.genfromtxt("../data/mnist.data.test")#, max_rows=20)
+		y_test = np.genfromtxt("../data/mnist.labels.test")#, max_rows=20)
 		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
 		
