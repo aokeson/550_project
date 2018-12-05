@@ -17,10 +17,10 @@ else:
 	print("Must specify a server number")
 	exit()
 
-X_train = np.genfromtxt("../data/mnist.data.train")#, max_rows=80)
-y_train = np.genfromtxt("../data/mnist.labels.train")#, max_rows=80)
-X_test = np.genfromtxt("../data/mnist.data.test")#, max_rows=20)
-y_test = np.genfromtxt("../data/mnist.labels.test")#, max_rows=20)
+X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
+y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
+X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
+y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
 print("done loading data")
 
 def training(model_num, HY, num_epochs):

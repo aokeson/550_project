@@ -5,13 +5,14 @@ from sklearn.model_selection import ParameterGrid
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
-import math, os
+import math, os, time
 
 max_epochs = 200
 running_avg_window = 2
 slopes_window = 4
-min_observations = 3
+min_observations = 3 #max_epochs+5
 tolerance_eps = 5
+timeout = 15
 
 loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
@@ -61,10 +62,50 @@ class MyFuncs:
     
 	def model_finished(self, model_num):
 		print("MODEL %i DONE"%model_num)
+		worker_timestamps[np.where(WORKERS==model_num)[0][0]] = np.nan
 		WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
 		return True
 
-	def update(self, epoch_num, model_num, loss):
+	def update(self, epoch_num, model_num, loss, msg_order_tolerant=True):
+		# update loss value
+		if model_num not in WORKERS:
+			return True
+
+		losses[model_num, epoch_num] = loss
+
+		# update all running averages and running slopes for the given model
+		if msg_order_tolerant:
+			for ep in np.arange(running_avg_window-1, max_epochs):
+				running_averages[model_num, ep]  = np.mean(losses[model_num, ep-running_avg_window+1:ep+1])
+
+			for ep in np.arange(slopes_window, max_epochs):
+				running_slopes[model_num, ep] = running_averages[model_num, ep] - running_averages[model_num, ep-slopes_window]
+
+
+		# just update the current running_avg and running_slope for the given model
+		else:
+			# keep running average for the slopes --> then update the slope
+			# if statements prevent us from indexing into negative indices of the array 
+			if epoch_num - running_avg_window + 1 >= 0:
+				running_averages[model_num, epoch_num] = np.mean(losses[model_num, epoch_num-running_avg_window+1:epoch_num+1])
+			if epoch_num - slopes_window >= 0:
+				running_slopes[model_num, epoch_num] = running_averages[model_num, epoch_num] - running_averages[model_num, epoch_num-slopes_window]
+
+		worker_timestamps[np.where(WORKERS==model_num)[0]] = time.time()
+
+		if check_stopping(model_num):
+			print("QUITTING MODEL %i"%model_num)
+			server_connects = []
+			for i in range(num_workers):
+				server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
+			server_connects[np.where(WORKERS==model_num)[0][0]].quit()
+			worker_timestamps[np.where(WORKERS==model_num)[0][0]] = np.nan
+			WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
+
+		return True
+
+
+	'''def update(self, epoch_num, model_num, loss):
 		# update loss value
 		losses[model_num, epoch_num] = loss
 
@@ -82,10 +123,8 @@ class MyFuncs:
 				server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 			server_connects[np.where(WORKERS==model_num)[0][0]].quit()
 			WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
-			    
-		else:
-			ep_counters[model_num] += 1
-		return True
+
+		return True'''
 
 	def train_request(self, message):
 		global hy_list
@@ -94,7 +133,8 @@ class MyFuncs:
 		global running_slopes
 		global MODEL_QUEUE
 		global WORKERS
-		global ep_counters
+		global worker_timestamps
+
 		hy_list = list(ParameterGrid(message))
 
 		# INITIALIZATION 
@@ -116,14 +156,8 @@ class MyFuncs:
 		WORKERS = np.empty(num_workers)
 		WORKERS.fill(np.nan)
 
-
-		# For the simulation, We randomly pick a worker to "receive" a message from, but in reality we just select data from 
-		# the pre-determined training curve and pass it to the update function 
-		# ep_counters is used to keep track of what epoch we're up to in training  
-		# (it's a dict where each key is a model number and the value is the #epoch training is thought to be on)
-		ep_counters = {}
-		for mod in range(len(hy_list)):
-			ep_counters[mod] = 0
+		worker_timestamps = np.empty(num_workers)
+		worker_timestamps.fill(np.nan)
 
 
 		server_connects = []
@@ -135,8 +169,29 @@ class MyFuncs:
 		print_counter=0
 		while True:
 
+			# CHECK FOR TIMEOUTS
+			timedOutWorkers = np.where(np.array([time.time()]*num_workers) - worker_timestamps > timeout)[0]
+			if len(timedOutWorkers) > 0:
+				for worker in timedOutWorkers:
+					print("DEAD WORKER: ", worker)
+					incompleteModel = WORKERS[worker]
+					MODEL_QUEUE.append(incompleteModel)
+
+					# this will make the worker always appear busy so we don't try a new model on it 
+					WORKERS[worker] = -1
+
+					# this model will stop appearing timed out in future loops 
+					worker_timestamps[worker] = np.nan
+
 			# if there are no workers working on any models AND there are no models left to test, break out of the loop
 			if len(np.where(~np.isnan(WORKERS))[0]) == 0 and not MODEL_QUEUE:
+				break
+			# if all workers have timed out, break (this only happens if ALL workers are set to -1)
+			elif np.mean(WORKERS)==-1:
+				print("ALL WORKERS DIED")
+				break
+			# if the only non-nan workers are -1 (i.e., considered dead) and there are no models left ot test, break out of the loop
+			elif np.nanmean(WORKERS)==-1 and not MODEL_QUEUE:
 				break
 
 			# if there are any unoccupied workers, add a new model from the queue
@@ -157,10 +212,10 @@ class MyFuncs:
 
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
-		X_train = np.genfromtxt("../data/mnist.data.train")#, max_rows=80)
-		y_train = np.genfromtxt("../data/mnist.labels.train")#, max_rows=80)
-		X_test = np.genfromtxt("../data/mnist.data.test")#, max_rows=20)
-		y_test = np.genfromtxt("../data/mnist.labels.test")#, max_rows=20)
+		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
+		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
+		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
+		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
 		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
 		
