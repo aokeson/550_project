@@ -1,4 +1,4 @@
-import sys
+import sys, time
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
 import numpy as np
@@ -24,7 +24,9 @@ y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
 print("done loading data")
 
 def training(model_num, HY, num_epochs):
-	keras.backend.clear_session()
+	#keras.backend.clear_session()
+	#print(HY)
+	#time.sleep(2)
 
 	# reshape training data into 2d
 	X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
@@ -86,6 +88,7 @@ def training(model_num, HY, num_epochs):
 	else:
 		model.fit(X_train_c, y_train, validation_data=(X_test_c, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.LambdaCallback(on_epoch_end=report_ep_loss)])
 	leader.model_finished(model_num)
+	keras.backend.clear_session()
 
 
 # Functions that client can ask server to do
@@ -93,6 +96,7 @@ class MyFuncs:
     
 	def quit(self):
 		keras.backend.clear_session()
+		time.sleep(5)
 		return "stopping"
 
 	def train(self, model_num, HY, max_epochs):

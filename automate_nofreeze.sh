@@ -1,13 +1,13 @@
 #!/bin/bash
-declare -a servers=("8801" "8802" "8803" "8804" "8805")
+declare -a servers=("8806" "8807" "8808" "8809" "8810")
 
 start() {
 	python leader_nofreeze.py &
 	for number in "${servers[@]}"
 	do
-		python worker.py "$number" &
+		python worker_nofreeze.py "$number" &
 	done
-	sleep 15
+	sleep 20
 	python client_nofreeze.py &
 }
 

@@ -16,7 +16,7 @@ running_avg_window = 2
 slopes_window = 4
 min_observations = 3
 tolerance_eps = 5
-timeout = 200
+timeout = 15
 
 loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
@@ -75,6 +75,7 @@ class MyFuncs:
 	def update(self, epoch_num, model_num, loss, msg_order_tolerant=True):
 		# update loss value
 		if model_num not in WORKERS:
+			print("HERE ICK")
 			return True
 
 		losses[model_num, epoch_num] = loss
@@ -154,7 +155,7 @@ class MyFuncs:
 
 		server_connects = []
 		for i in range(num_workers):
-			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
+			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+num_workers+i),allow_none=True))
 
 		# how often we want to generate a plot (total epochs run for any model)
 		plotting_frequency = 50
@@ -204,10 +205,10 @@ class MyFuncs:
 
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
-		X_train = np.genfromtxt("../data/mnist.data.train")
-		y_train = np.genfromtxt("../data/mnist.labels.train")
-		X_test = np.genfromtxt("../data/mnist.data.test")
-		y_test = np.genfromtxt("../data/mnist.labels.test")
+		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
+		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
+		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
+		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
 		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
 		
@@ -274,7 +275,7 @@ class MyFuncs:
 
 
 # Start server, register functions, serve continuously
-server = MultiXMLRPCServer(('localhost', 8800),logRequests=False) # Can process multiple requests at once
+server = MultiXMLRPCServer(('localhost', 8899),logRequests=False) # Can process multiple requests at once
 server.register_instance(MyFuncs())
 server.serve_forever()
 

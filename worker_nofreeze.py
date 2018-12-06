@@ -1,4 +1,4 @@
-import sys
+import sys, time
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import socketserver, xmlrpc.client
 import numpy as np
@@ -7,7 +7,7 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
 
-leader = xmlrpc.client.ServerProxy('http://localhost:8800',allow_none=True)
+leader = xmlrpc.client.ServerProxy('http://localhost:8899',allow_none=True)
 
 class MultiXMLRPCServer(socketserver.ThreadingMixIn,SimpleXMLRPCServer): pass
 
@@ -25,6 +25,7 @@ print("done loading data")
 
 def training(model_num, HY, num_epochs):
 	keras.backend.clear_session()
+	time.sleep(1)
 
 	# reshape training data into 2d
 	X_train_c = X_train.reshape(len(X_train), 28, 28, 1)

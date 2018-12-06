@@ -38,7 +38,7 @@ HY_small = {
     "grad_clip_norm": [x * 0.2 for x in range(3)]}
 
 
-with xmlrpc.client.ServerProxy('http://localhost:8800') as s:
+with xmlrpc.client.ServerProxy('http://localhost:8899') as s:
     print(s)
     output = s.train_request(HY)
     np.savetxt("./final_loss_matrix_nofreeze.txt", output[0])

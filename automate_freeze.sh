@@ -5,9 +5,9 @@ start() {
 	python leader_freeze.py &
 	for number in "${servers[@]}"
 	do
-		python worker.py "$number" &
+		python worker_freeze.py "$number" &
 	done
-	sleep 15
+	sleep 20
 	python client_freeze.py &
 }
 
