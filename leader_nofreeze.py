@@ -7,8 +7,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
 import math, os, time
 
-if os.path.exists("./model_completion_times.txt"):
-	os.remove("./model_completion_times.txt")
+if os.path.exists("./model_completion_times_nofreeze.txt"):
+	os.remove("./model_completion_times_nofreeze.txt")
 
 
 max_epochs = 100
@@ -22,7 +22,7 @@ loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
 
 
-num_workers = 3
+num_workers = 10
 
 
 
@@ -68,7 +68,7 @@ class MyFuncs:
 		print("MODEL %i DONE"%model_num)
 		worker_timestamps[np.where(WORKERS==model_num)[0][0]] = np.nan
 		WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
-		with open("model_completion_times.txt", 'a+') as f:
+		with open("./model_completion_times_nofreeze.txt", 'a+') as f:
 			f.write(str(time.time()-start_time) + "," + str(model_num) + ",complete\n")
 		return True
 
@@ -99,6 +99,7 @@ class MyFuncs:
 
 		worker_timestamps[np.where(WORKERS==model_num)[0]] = time.time()
 
+		'''
 		if check_stopping(model_num):
 			print("QUITTING MODEL %i"%model_num)
 			server_connects = []
@@ -107,8 +108,9 @@ class MyFuncs:
 			server_connects[np.where(WORKERS==model_num)[0][0]].quit()
 			worker_timestamps[np.where(WORKERS==model_num)[0][0]] = np.nan
 			WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
-			with open("./model_completion_times.txt", 'a+') as f:
+			with open("./model_completion_times_nofreeze.txt", 'a+') as f:
 				f.write(str(time.time()-start_time) + "," + str(model_num) + ",quit_early\n")
+		'''
 
 		return True
 
@@ -138,7 +140,7 @@ class MyFuncs:
 		running_slopes.fill(np.nan)
 
 		# here, we're just pre-specifying a random order in which to test all the hyperparameters 
-		MODEL_QUEUE = list(np.random.permutation(len(hy_list)))
+		MODEL_QUEUE = list(np.loadtxt("large_random.txt"))
 
 
 		# array of length num_workers 

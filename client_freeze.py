@@ -40,8 +40,8 @@ HY_small = {
 
 with xmlrpc.client.ServerProxy('http://localhost:8800') as s:
     print(s)
-    output = s.train_request(HY_small)
-    np.savetxt("./final_loss_matrix.txt", np.asarray(output[0]), delimiter=",")
+    output = s.train_request(HY)
+    np.savetxt("./final_loss_matrix_freeze.txt", output[0])
     print("The best validation loss was %f using hyperparameters %s and %i epochs. This model is saved at %s"%(output[2],str(output[3]),output[4],output[5]))
     for row in output[0]:
         plt.plot(range(1,len(row)+1), row)
