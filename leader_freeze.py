@@ -16,13 +16,13 @@ running_avg_window = 2
 slopes_window = 4
 min_observations = 3
 tolerance_eps = 5
-timeout = 15
+timeout = 200
 
 loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
 
 
-num_workers = 10
+num_workers = 5
 
 
 
@@ -159,12 +159,11 @@ class MyFuncs:
 			server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 
 		# how often we want to generate a plot (total epochs run for any model)
-		plotting_frequency = 50
-		print_counter=0
 		while True:
 
 			# CHECK FOR TIMEOUTS
 			timedOutWorkers = np.where(np.array([time.time()]*num_workers) - worker_timestamps > timeout)[0]
+			#print(timedOutWorkers)
 			if len(timedOutWorkers) > 0:
 				for worker in timedOutWorkers:
 					print("DEAD WORKER: ", worker)
@@ -177,17 +176,23 @@ class MyFuncs:
 					# this model will stop appearing timed out in future loops 
 					worker_timestamps[worker] = np.nan
 
+			#print(WORKERS)
 			# if there are no workers working on any models AND there are no models left to test, break out of the loop
 			if len(np.where(~np.isnan(WORKERS))[0]) == 0 and not MODEL_QUEUE:
+				print("break1")
 				break
 			# if all workers have timed out, break (this only happens if ALL workers are set to -1)
 			elif np.mean(WORKERS)==-1:
+				print('break2')
 				print("ALL WORKERS DIED")
 				break
 			# if the only non-nan workers are -1 (i.e., considered dead) and there are no models left ot test, break out of the loop
+			
 			elif np.nanmean(WORKERS)==-1 and not MODEL_QUEUE:
+				print('break3')
 				break
 
+			#print("before while")
 			# if there are any unoccupied workers, add a new model from the queue
 			while len(np.where(np.isnan(WORKERS))[0]) > 0:
 				# make sure model queue isnt empty
@@ -201,15 +206,16 @@ class MyFuncs:
 					server_connects[new_worker_id].train(new_mod, hy_list[new_mod], max_epochs)
 
 				else:
+					#print("og break")
 					break
 
 
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
-		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
-		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
-		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
-		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
+		X_train = np.genfromtxt("../data/mnist.data.train")
+		y_train = np.genfromtxt("../data/mnist.labels.train")
+		X_test = np.genfromtxt("../data/mnist.data.test")
+		y_test = np.genfromtxt("../data/mnist.labels.test")
 		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
 		

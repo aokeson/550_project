@@ -16,13 +16,13 @@ running_avg_window = 2
 slopes_window = 4
 min_observations = 3
 tolerance_eps = 5
-timeout = 15
+timeout = 200
 
 loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
 
 
-num_workers = 10
+num_workers = 5
 
 
 
@@ -204,10 +204,10 @@ class MyFuncs:
 
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
-		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
-		y_train = np.genfromtxt("../data/mnist.labels.train", max_rows=80)
-		X_test = np.genfromtxt("../data/mnist.data.test", max_rows=20)
-		y_test = np.genfromtxt("../data/mnist.labels.test", max_rows=20)
+		X_train = np.genfromtxt("../data/mnist.data.train")
+		y_train = np.genfromtxt("../data/mnist.labels.train")
+		X_test = np.genfromtxt("../data/mnist.data.test")
+		y_test = np.genfromtxt("../data/mnist.labels.test")
 		X_train_c = X_train.reshape(len(X_train), 28, 28, 1)
 		X_test_c = X_test.reshape(len(X_test), 28, 28, 1)
 		

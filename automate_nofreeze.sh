@@ -1,5 +1,5 @@
 #!/bin/bash
-declare -a servers=("8801" "8802" "8803" "8804" "8805" "8806" "8807" "8808" "8809" "8810")
+declare -a servers=("8801" "8802" "8803" "8804" "8805")
 
 start() {
 	python leader_nofreeze.py &
