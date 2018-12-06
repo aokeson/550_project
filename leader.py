@@ -5,20 +5,22 @@ from sklearn.model_selection import ParameterGrid
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten, Activation, MaxPooling2D, Dropout
-import math, os
+import math, os, time
 
-max_epochs = 200
+max_epochs = 100
 running_avg_window = 2
 slopes_window = 4
-min_observations = 3
+min_observations = 6
 tolerance_eps = 5
 
 loss_quantile_cutoff = .5
 slope_quantile_cutoff = .5
 
 
-num_workers = 3
+num_workers = 5
 
+if os.path.exists("./model_completion_times_nofreeze.txt"):
+	os.remove("./model_completion_times_nofreeze.txt")
 
 
 class MultiXMLRPCServer(socketserver.ThreadingMixIn,SimpleXMLRPCServer): pass
@@ -62,6 +64,8 @@ class MyFuncs:
 	def model_finished(self, model_num):
 		print("MODEL %i DONE"%model_num)
 		WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
+		with open("model_completion_times_nofreeze.txt", 'a+') as f:
+			f.write(str(time.time()-start_time) + "," + str(model_num) + ",complete\n")
 		return True
 
 	def update(self, epoch_num, model_num, loss):
@@ -75,16 +79,22 @@ class MyFuncs:
 		if epoch_num - slopes_window >= 0:
 			running_slopes[model_num, epoch_num] = running_averages[model_num, epoch_num] - running_averages[model_num, epoch_num-slopes_window]
 
+		'''
 		if check_stopping(model_num):
 			print("QUITTING MODEL %i"%model_num)
+			with open("./model_completion_times_nofreeze.txt", 'a+') as f:
+				f.write(str(time.time()-start_time) + "," + str(model_num) + ",quit_early\n")
 			server_connects = []
 			for i in range(num_workers):
 				server_connects.append(xmlrpc.client.ServerProxy('http://localhost:'+str(8801+i),allow_none=True))
 			server_connects[np.where(WORKERS==model_num)[0][0]].quit()
 			WORKERS[np.where(WORKERS==model_num)[0][0]] = np.nan
+			
 			    
 		else:
 			ep_counters[model_num] += 1
+		'''
+
 		return True
 
 	def train_request(self, message):
@@ -95,6 +105,9 @@ class MyFuncs:
 		global MODEL_QUEUE
 		global WORKERS
 		global ep_counters
+		global start_time
+
+		start_time = time.time()
 		hy_list = list(ParameterGrid(message))
 
 		# INITIALIZATION 
@@ -108,8 +121,8 @@ class MyFuncs:
 		running_slopes.fill(np.nan)
 
 		# here, we're just pre-specifying a random order in which to test all the hyperparameters 
-		MODEL_QUEUE = list(np.random.permutation(len(hy_list)))
-
+		#MODEL_QUEUE = list(np.random.permutation(len(hy_list)))
+		MODEL_QUEUE = list(np.loadtxt("medium_random.txt"))
 
 		# array of length num_workers 
 		# --> if the worker is idle, value is np.nan; otherwise, the value is the model number that's being trained
@@ -154,7 +167,10 @@ class MyFuncs:
 				else:
 					break
 
-
+		num_epochs = int((np.nanargmin(losses)%max_epochs)+1)
+		save_path = str(os.path.dirname(os.path.abspath(__file__)))+str("/best_model.hdf5")
+		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
+		'''
 		HY = hy_list[math.floor(np.nanargmin(losses)/max_epochs)]
 
 		X_train = np.genfromtxt("../data/mnist.data.train", max_rows=80)
@@ -220,7 +236,7 @@ class MyFuncs:
 		else:
 			model.fit(X_train_c, y_train, validation_data=(X_test_c, y_test), epochs=num_epochs, verbose=1, callbacks=[keras.callbacks.ModelCheckpoint(save_path, monitor='val_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', period=num_epochs)])
 		keras.backend.clear_session()
-
+		'''
 		return (losses.tolist(), len(hy_list), float(losses.tolist()[math.floor(np.nanargmin(losses)/max_epochs)][num_epochs-1]), HY, num_epochs, save_path)
 
 
